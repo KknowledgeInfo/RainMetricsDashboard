@@ -36,6 +36,12 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Deploying to Render
+
+Deploy the dashboard as a **Static Site**, not a Web Service running `npm start` or `ng serve`. The repository-root `render.yaml` configures the Angular production build and publishes `dist/rain-metrics-dashboard/browser`.
+
+The dashboard calls the API at `https://rainmetricsapi.onrender.com`. In the API Render service, set the `APP_CORS_ALLOWED_ORIGINS` environment variable to the exact public dashboard origin (for example, `https://rainmetrics-dashboard.onrender.com`, with no trailing slash). The API allows local development from `http://localhost:4200` by default.
+
 ## Running unit tests
 
 To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:

@@ -11,7 +11,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class RainMetricsApiService {
-  private readonly baseUrl = '/api/rain-metrics';
+  private readonly baseUrl = 'https://rainmetricsapi.onrender.com/api/rain-metrics';
 
   constructor(private readonly http: HttpClient) {}
 
