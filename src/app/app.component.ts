@@ -34,8 +34,7 @@ type ChartModule = typeof import('chart.js');
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('overviewCanvas') overviewCanvas?: ElementRef<HTMLCanvasElement>;
-  @ViewChildren('barCanvas') barCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
-  @ViewChildren('lineCanvas') lineCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
+  @ViewChildren('metricsCanvas') metricsCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
 
   readonly months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -50,6 +49,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly currentYear = new Date().getFullYear();
 
   activeSection: 'overview' | 'rainMetrics' = 'overview';
+  sidebarExpanded = false;
+  private sidebarPinned = false;
+  private sidebarHasFocus = false;
   darkTheme = false;
   loadingOverview = true;
   loadingMetrics = false;
@@ -58,6 +60,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   metrics?: RainMetricsResponse;
   filters: RainMetricsFilters = { devices: [], locations: [] };
   view: MetricsView = 'DAILY';
+  chartType: 'bar' | 'line' = 'bar';
   selectedDate = this.formatDate(new Date());
   selectedMonth = new Date().getMonth();
   selectedYear = this.currentYear;
@@ -82,8 +85,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.barCanvases.changes.subscribe(() => this.renderMetricsCharts());
-    this.lineCanvases.changes.subscribe(() => this.renderMetricsCharts());
+    this.metricsCanvases.changes.subscribe(() => this.renderMetricsCharts());
   }
 
   ngOnDestroy(): void {
@@ -207,6 +209,44 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderMetricsCharts();
   }
 
+  setChartType(type: 'bar' | 'line'): void {
+    if (this.chartType === type) return;
+    this.chartType = type;
+    this.renderMetricsCharts();
+  }
+
+  toggleSidebar(): void {
+    this.sidebarPinned = !this.sidebarPinned;
+    this.sidebarExpanded = this.sidebarPinned;
+  }
+
+  onMenuToggleMouseEnter(): void {
+    if (!this.sidebarPinned) this.sidebarExpanded = true;
+  }
+
+  onSidebarMouseEnter(): void {
+    if (!this.sidebarPinned) this.sidebarExpanded = true;
+  }
+
+  onSidebarMouseLeave(): void {
+    if (!this.sidebarPinned && !this.sidebarHasFocus) this.sidebarExpanded = false;
+  }
+
+  onSidebarFocusIn(): void {
+    this.sidebarHasFocus = true;
+    this.sidebarExpanded = true;
+  }
+
+  onSidebarFocusOut(event: FocusEvent): void {
+    const sidebar = event.currentTarget;
+    const nextTarget = event.relatedTarget;
+    if (sidebar instanceof HTMLElement && nextTarget instanceof HTMLElement && sidebar.contains(nextTarget)) return;
+    this.sidebarHasFocus = false;
+    if (!this.sidebarPinned && sidebar instanceof HTMLElement && !sidebar.matches(':hover')) {
+      this.sidebarExpanded = false;
+    }
+  }
+
   toggleTheme(): void {
     this.darkTheme = !this.darkTheme;
     this.changeDetector.detectChanges();
@@ -284,13 +324,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (revision !== this.metricsRenderRevision
         || this.activeSection !== 'rainMetrics'
         || this.metrics !== metrics) return;
-    this.barCanvases?.forEach((canvas, index) => {
+    this.metricsCanvases?.forEach((canvas, index) => {
       const location = metrics.locations[index];
-      if (location) this.metricsCharts.push(this.createLocationChart(chartModule, canvas.nativeElement, location, 'bar'));
-    });
-    this.lineCanvases?.forEach((canvas, index) => {
-      const location = metrics.locations[index];
-      if (location) this.metricsCharts.push(this.createLocationChart(chartModule, canvas.nativeElement, location, 'line'));
+      if (location) this.metricsCharts.push(this.createLocationChart(chartModule, canvas.nativeElement, location, this.chartType));
     });
   }
 
@@ -302,9 +338,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   ): ChartInstance {
     const rainfall = location.readings.map((reading) => reading.rainfallMm);
     const heavyThreshold = this.metrics?.heavyRainThresholdMm ?? 5;
-    const neutral = this.darkTheme ? '#e8e8e4' : '#1a1a1a';
+    const lineColor = this.darkTheme ? '#6fc7ff' : '#2563eb';
     const colors = location.readings.map((reading) =>
-      reading.rainfallMm >= heavyThreshold ? '#dc4545' : neutral
+      reading.rainfallMm >= heavyThreshold ? '#dc4545' : (type === 'line' ? lineColor : (this.darkTheme ? '#d9e8f2' : '#1a1a1a'))
     );
     return new chartModule.Chart(canvas, {
       type,
@@ -313,10 +349,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         datasets: [{
           label: 'Rainfall (mm)',
           data: rainfall,
-          backgroundColor: type === 'bar' ? colors : (this.darkTheme ? 'rgba(232, 232, 228, 0.08)' : 'rgba(26, 26, 26, 0.08)'),
-          borderColor: type === 'bar' ? colors : neutral,
+          backgroundColor: type === 'bar' ? colors : (this.darkTheme ? 'rgba(111, 199, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)'),
+          borderColor: type === 'bar' ? colors : lineColor,
           pointBackgroundColor: colors,
-          borderWidth: 2,
+          pointBorderColor: this.darkTheme ? '#1d1d1d' : '#ffffff',
+          borderWidth: type === 'line' ? 3 : 1,
           borderRadius: type === 'bar' ? 5 : 0,
           pointRadius: type === 'line' ? 3 : 0,
           tension: 0.35,

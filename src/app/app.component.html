@@ -1,15 +1,15 @@
 <div class="dashboard" [class.theme-dark]="darkTheme">
-  <aside class="sidebar">
-    <a class="brand" href="#" (click)="$event.preventDefault(); showSection('overview')">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none">
-          <path d="M7 21.5h17.2a4.8 4.8 0 0 0 .4-9.6 8.6 8.6 0 0 0-16.6 1.4A4.2 4.2 0 0 0 7 21.5Z" />
-          <path d="m12 25-1.2 2.5M19 25l-1.2 2.5" />
-        </svg>
-      </span>
-      <span class="brand-name">rain<span>metrics</span></span>
-    </a>
-
+  <button type="button" class="brand-mark menu-toggle" (click)="toggleSidebar()"
+    (mouseenter)="onMenuToggleMouseEnter()" [attr.aria-expanded]="sidebarExpanded"
+    aria-label="Toggle navigation menu">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M7 21.5h17.2a4.8 4.8 0 0 0 .4-9.6 8.6 8.6 0 0 0-16.6 1.4A4.2 4.2 0 0 0 7 21.5Z" />
+      <path d="m12 25-1.2 2.5M19 25l-1.2 2.5" />
+    </svg>
+  </button>
+  <aside class="sidebar" [class.sidebar-expanded]="sidebarExpanded"
+    (mouseenter)="onSidebarMouseEnter()" (mouseleave)="onSidebarMouseLeave()"
+    (focusin)="onSidebarFocusIn()" (focusout)="onSidebarFocusOut($event)">
     <div class="nav-caption">WORKSPACE</div>
     <nav class="primary-nav" aria-label="Main navigation">
       <button type="button" class="nav-item" [class.active]="activeSection === 'overview'"
@@ -198,6 +198,15 @@
             Heavy rain flagged at {{ metrics.heavyRainThresholdMm }} mm / bucket
           </div>
           <div class="summary-total"><span class="summary-label">LOCATIONS</span><strong>{{ metrics.locations.length }}</strong></div>
+          <div class="chart-type-picker" role="group" aria-label="Chart type">
+            <span class="summary-label">CHART TYPE</span>
+            <div class="chart-type-options">
+              <button type="button" [class.selected]="chartType === 'bar'" [attr.aria-pressed]="chartType === 'bar'"
+                (click)="setChartType('bar')">Bar</button>
+              <button type="button" [class.selected]="chartType === 'line'" [attr.aria-pressed]="chartType === 'line'"
+                (click)="setChartType('line')">Line</button>
+            </div>
+          </div>
         </div>
 
         <div *ngIf="loadingMetrics" class="metrics-loading"><span class="spinner"></span>Loading selected rainfall data</div>
@@ -207,7 +216,7 @@
         </div>
 
         <div class="location-chart-list" *ngIf="!loadingMetrics && metrics?.locations?.length">
-          <article class="location-chart-card panel-card" *ngFor="let location of metrics?.locations; let index = index">
+          <article class="location-chart-card panel-card" *ngFor="let location of metrics?.locations">
             <div class="location-chart-heading">
               <div class="chart-location-title">
                 <span class="chart-location-mark" [class.chart-mark-heavy]="hasHeavyRain(location)"></span>
@@ -215,14 +224,14 @@
               </div>
               <div class="chart-total"><span>TOTAL RAINFALL</span><strong>{{ location.totalMm | number:'1.1-2' }} <small>mm</small></strong></div>
             </div>
-            <div class="paired-charts">
-              <div class="chart-card-inner">
-                <div class="chart-title"><strong>Rainfall by {{ view === 'DAILY' ? 'hour' : (view === 'YEARLY' ? 'month' : 'day') }}</strong><span>BAR CHART</span></div>
-                <div class="location-chart"><canvas #barCanvas [attr.aria-label]="'Bar chart rainfall for ' + location.location"></canvas></div>
+            <div class="chart-card-inner">
+              <div class="chart-title">
+                <strong>Rainfall by {{ view === 'DAILY' ? 'hour' : (view === 'YEARLY' ? 'month' : 'day') }}</strong>
+                <span>{{ chartType === 'bar' ? 'BAR CHART' : 'LINE CHART' }}</span>
               </div>
-              <div class="chart-card-inner">
-                <div class="chart-title"><strong>Rainfall trend</strong><span>LINE CHART</span></div>
-                <div class="location-chart"><canvas #lineCanvas [attr.aria-label]="'Line chart rainfall for ' + location.location"></canvas></div>
+              <div class="location-chart">
+                <canvas #metricsCanvas
+                  [attr.aria-label]="(chartType === 'bar' ? 'Bar chart rainfall for ' : 'Line chart rainfall for ') + location.location"></canvas>
               </div>
             </div>
             <div class="heavy-note" *ngIf="hasHeavyRain(location)">
