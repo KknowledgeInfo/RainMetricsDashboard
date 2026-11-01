@@ -16,6 +16,7 @@ import {
   MetricsView,
   RainMetricsDevice,
   RainMetricsFilters,
+  RainMetricsLocationOption,
   RainMetricsLocation,
   RainMetricsOverview,
   RainMetricsOverviewLocation,
@@ -55,10 +56,22 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   darkTheme = false;
   loadingOverview = true;
   loadingMetrics = false;
+  loadingDistricts = false;
+  loadingSubDistricts = false;
+  loadingCityVillages = false;
   errorMessage = '';
   overview?: RainMetricsOverview;
   metrics?: RainMetricsResponse;
   filters: RainMetricsFilters = { devices: [], locations: [] };
+  states: RainMetricsLocationOption[] = [];
+  districts: RainMetricsLocationOption[] = [];
+  subDistricts: RainMetricsLocationOption[] = [];
+  cityVillages: RainMetricsLocationOption[] = [];
+  selectedStateId?: number;
+  selectedDistrictId?: number;
+  selectedSubDistrictId?: number;
+  selectedCityVillageId?: number;
+  locationApplied = false;
   view: MetricsView = 'DAILY';
   chartType: 'bar' | 'line' = 'bar';
   selectedDate = this.formatDate(new Date());
@@ -80,8 +93,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.loadFilters();
-    this.loadOverview();
+    this.loadStates();
   }
 
   ngAfterViewInit(): void {
@@ -115,6 +127,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.months[this.selectedMonth];
   }
 
+  get selectedStateName(): string {
+    return this.states.find((state) => state.id === this.selectedStateId)?.name ?? 'selected state';
+  }
+
+  get selectedDistrictName(): string {
+    return this.districts.find((district) => district.id === this.selectedDistrictId)?.name ?? 'selected district';
+  }
+
   hasHeavyRain(location: RainMetricsLocation): boolean {
     return location.readings.some((reading) => reading.heavyRain);
   }
@@ -123,20 +143,125 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return location.readings.filter((reading) => reading.heavyRain).length;
   }
 
-  loadFilters(): void {
-    this.api.getFilters().subscribe({
-      next: (filters) => {
-        this.filters = filters;
+  loadStates(): void {
+    this.api.getStates().subscribe({
+      next: (states) => this.states = states,
+      error: () => this.errorMessage = 'Could not load states. Check that the RainMetrics API is running.'
+    });
+  }
+
+  onStateChange(): void {
+    this.selectedDistrictId = undefined;
+    this.selectedSubDistrictId = undefined;
+    this.selectedCityVillageId = undefined;
+    this.districts = [];
+    this.subDistricts = [];
+    this.cityVillages = [];
+    this.clearAppliedLocation();
+    if (this.selectedStateId === undefined) return;
+
+    this.loadingDistricts = true;
+    this.api.getDistricts(this.selectedStateId).subscribe({
+      next: (districts) => {
+        this.districts = districts;
+        this.loadingDistricts = false;
       },
       error: () => {
-        this.errorMessage = 'Could not load station filters. Check that the RainMetrics API is running.';
+        this.loadingDistricts = false;
+        this.errorMessage = 'Could not load districts for the selected state.';
       }
     });
   }
 
+  onDistrictChange(): void {
+    this.selectedSubDistrictId = undefined;
+    this.selectedCityVillageId = undefined;
+    this.subDistricts = [];
+    this.cityVillages = [];
+    this.clearAppliedLocation();
+    if (this.selectedDistrictId === undefined) return;
+
+    this.loadingSubDistricts = true;
+    this.api.getSubDistricts(this.selectedDistrictId).subscribe({
+      next: (subDistricts) => {
+        this.subDistricts = subDistricts;
+        this.loadingSubDistricts = false;
+      },
+      error: () => {
+        this.loadingSubDistricts = false;
+        this.errorMessage = 'Could not load sub-districts for the selected district.';
+      }
+    });
+  }
+
+  onSubDistrictChange(): void {
+    this.selectedCityVillageId = undefined;
+    this.cityVillages = [];
+    this.clearAppliedLocation();
+    if (this.selectedSubDistrictId === undefined) return;
+
+    this.loadingCityVillages = true;
+    this.api.getCityVillages(this.selectedSubDistrictId).subscribe({
+      next: (cityVillages) => {
+        this.cityVillages = cityVillages;
+        this.loadingCityVillages = false;
+      },
+      error: () => {
+        this.loadingCityVillages = false;
+        this.errorMessage = 'Could not load cities and villages for the selected sub-district.';
+      }
+    });
+  }
+
+  onCityVillageChange(): void {
+    this.clearAppliedLocation();
+  }
+
+  applyLocation(): void {
+    if (this.selectedStateId === undefined) return;
+    this.locationApplied = true;
+    this.errorMessage = '';
+    this.loadFilters();
+    this.loadOverview();
+    if (this.activeSection === 'rainMetrics') this.loadMetrics();
+  }
+
+  private loadFilters(): void {
+    this.api.getLocationFilters(
+      this.selectedStateId!,
+      this.selectedDistrictId,
+      this.selectedSubDistrictId,
+      this.selectedCityVillageId
+    ).subscribe({
+      next: (filters) => this.filters = filters,
+      error: () => this.errorMessage = 'Could not load station filters for the selected area.'
+    });
+  }
+
+  private clearAppliedLocation(): void {
+    this.locationApplied = false;
+    this.overview = undefined;
+    this.metrics = undefined;
+    this.filters = { devices: [], locations: [] };
+    this.selectedLocation = '';
+    this.selectedDeviceId = '';
+    this.errorMessage = '';
+    this.changeDetector.detectChanges();
+    this.renderCharts();
+  }
+
   loadOverview(): void {
+    if (!this.locationApplied || this.selectedStateId === undefined) {
+      this.loadingOverview = false;
+      return;
+    }
     this.loadingOverview = true;
-    this.api.getOverview().subscribe({
+    this.api.getOverview({
+      stateId: this.selectedStateId,
+      districtId: this.selectedDistrictId,
+      subDistrictId: this.selectedSubDistrictId,
+      cityVillageId: this.selectedCityVillageId
+    }).subscribe({
       next: (overview) => {
         this.overview = overview;
         this.loadingOverview = false;
@@ -164,10 +289,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadMetrics(): void {
+    if (!this.locationApplied || this.selectedStateId === undefined) {
+      this.metrics = undefined;
+      return;
+    }
     const query: RainMetricsQuery = {
       view: this.view,
       location: this.selectedLocation || undefined,
-      deviceId: this.selectedDeviceId || undefined
+      deviceId: this.selectedDeviceId || undefined,
+      stateId: this.selectedStateId,
+      districtId: this.selectedDistrictId,
+      subDistrictId: this.selectedSubDistrictId,
+      cityVillageId: this.selectedCityVillageId
     };
     if (this.view === 'DAILY') {
       query.date = this.selectedDate;
@@ -254,6 +387,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   refresh(): void {
+    if (!this.locationApplied) {
+      this.loadStates();
+      return;
+    }
+    this.loadFilters();
     this.loadOverview();
     if (this.activeSection === 'rainMetrics') this.loadMetrics();
   }

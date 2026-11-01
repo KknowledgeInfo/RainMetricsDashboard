@@ -58,6 +58,12 @@ export interface RainMetricsFilters {
   locations: string[];
 }
 
+export interface RainMetricsLocationOption {
+  id: number;
+  name: string;
+  localityType?: 'CITY' | 'VILLAGE' | null;
+}
+
 export interface RainMetricsQuery {
   view: MetricsView;
   date?: string;
@@ -66,4 +72,8 @@ export interface RainMetricsQuery {
   week?: number;
   deviceId?: string;
   location?: string;
+  stateId: number;
+  districtId?: number;
+  subDistrictId?: number;
+  cityVillageId?: number;
 }

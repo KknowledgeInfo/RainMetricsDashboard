@@ -52,7 +52,62 @@
         <button type="button" (click)="refresh()">Retry</button>
       </div>
 
-      <section *ngIf="activeSection === 'overview'" class="page-section">
+      <section class="filter-panel location-scope">
+        <div class="filter-heading">
+          <div><h2>Select a reporting area</h2><p>Select a state, then optionally narrow rainfall to a district, sub-district, or city/village.</p></div>
+          <span class="filter-icon">⌖</span>
+        </div>
+        <div class="filter-controls">
+          <label class="filter-control"><span>STATE</span>
+            <select name="state" [(ngModel)]="selectedStateId" (ngModelChange)="onStateChange()">
+              <option [ngValue]="undefined">Select a state</option>
+              <option *ngFor="let state of states" [ngValue]="state.id">{{ state.name }}</option>
+            </select>
+          </label>
+          <label class="filter-control"><span>DISTRICT</span>
+            <select name="district" [(ngModel)]="selectedDistrictId" (ngModelChange)="onDistrictChange()"
+              [disabled]="!selectedStateId || loadingDistricts">
+              <option [ngValue]="undefined">
+                {{ loadingDistricts ? 'Loading districts…' : (selectedStateId ? 'All districts in ' + selectedStateName : 'Select a state first') }}
+              </option>
+              <option *ngFor="let district of districts" [ngValue]="district.id">{{ district.name }}</option>
+            </select>
+          </label>
+          <label class="filter-control"><span>SUB-DISTRICT / TALUKA</span>
+            <select name="subDistrict" [(ngModel)]="selectedSubDistrictId"
+              (ngModelChange)="onSubDistrictChange()"
+              [disabled]="!selectedDistrictId || loadingSubDistricts">
+              <option [ngValue]="undefined">
+                {{ loadingSubDistricts ? 'Loading sub-districts…' : (selectedDistrictId ? 'All sub-districts in ' + selectedDistrictName : 'Choose a district to narrow results') }}
+              </option>
+              <option *ngFor="let subDistrict of subDistricts" [ngValue]="subDistrict.id">{{ subDistrict.name }}</option>
+            </select>
+          </label>
+          <label class="filter-control"><span>CITY / VILLAGE (OPTIONAL)</span>
+            <select name="cityVillage" [(ngModel)]="selectedCityVillageId"
+              (ngModelChange)="onCityVillageChange()"
+              [disabled]="!selectedSubDistrictId || loadingCityVillages">
+              <option [ngValue]="undefined">
+                {{ loadingCityVillages ? 'Loading cities and villages…' : 'All in this sub-district' }}
+              </option>
+              <option *ngFor="let locality of cityVillages" [ngValue]="locality.id">
+                {{ locality.name }}{{ locality.localityType ? ' (' + locality.localityType.toLowerCase() + ')' : '' }}
+              </option>
+            </select>
+          </label>
+          <button type="button" class="button button-primary" (click)="applyLocation()"
+            [disabled]="selectedStateId === undefined">
+            Show rainfall for selected area
+          </button>
+        </div>
+      </section>
+
+      <div *ngIf="!locationApplied" class="empty-state panel-card location-prompt">
+        <span class="empty-mark">⌖</span><h2>Select a reporting area to continue</h2>
+        <p>Select a state to see overall state rainfall. District, sub-district, and city/village are optional ways to narrow the results.</p>
+      </div>
+
+      <section *ngIf="activeSection === 'overview' && locationApplied" class="page-section">
         <div class="page-heading">
           <div>
             <div class="eyebrow"><span class="eyebrow-line"></span>RAIN GAUGE NETWORK</div>
@@ -132,7 +187,7 @@
         </div>
       </section>
 
-      <section *ngIf="activeSection === 'rainMetrics'" class="page-section">
+      <section *ngIf="activeSection === 'rainMetrics' && locationApplied" class="page-section">
         <div class="page-heading">
           <div>
             <div class="eyebrow"><span class="eyebrow-line"></span>ANALYTICS</div>
