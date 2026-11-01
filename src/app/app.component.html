@@ -1,0 +1,239 @@
+<div class="dashboard" [class.theme-dark]="darkTheme">
+  <aside class="sidebar">
+    <a class="brand" href="#" (click)="$event.preventDefault(); showSection('overview')">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 21.5h17.2a4.8 4.8 0 0 0 .4-9.6 8.6 8.6 0 0 0-16.6 1.4A4.2 4.2 0 0 0 7 21.5Z" />
+          <path d="m12 25-1.2 2.5M19 25l-1.2 2.5" />
+        </svg>
+      </span>
+      <span class="brand-name">rain<span>metrics</span></span>
+    </a>
+
+    <div class="nav-caption">WORKSPACE</div>
+    <nav class="primary-nav" aria-label="Main navigation">
+      <button type="button" class="nav-item" [class.active]="activeSection === 'overview'"
+        (click)="showSection('overview')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="8" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="15" width="7" height="6" rx="1.5" /></svg>
+        <span>Overview</span>
+      </button>
+      <button type="button" class="nav-item" [class.active]="activeSection === 'rainMetrics'"
+        (click)="showSection('rainMetrics')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V11M12 20V4M17 20v-7" /><path d="M4 20h16" /></svg>
+        <span>Rain metrics</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="live-status"><span class="live-dot"></span><span>Monitoring active</span></div>
+      <div class="sidebar-foot">RAIN GAUGE NETWORK<br><span>Live station data</span></div>
+    </div>
+  </aside>
+
+  <main class="main-panel">
+    <header class="topbar">
+      <div class="breadcrumb"><span>Workspace</span><span class="crumb-divider">/</span>
+        <strong>{{ activeSection === 'overview' ? 'Overview' : 'Rain metrics' }}</strong>
+      </div>
+      <div class="topbar-actions">
+        <span class="updated-label"><span class="updated-dot"></span>Station network</span>
+        <button type="button" class="icon-button theme-toggle" (click)="toggleTheme()"
+          [attr.aria-label]="darkTheme ? 'Switch to light theme' : 'Switch to dark theme'">
+          <svg *ngIf="!darkTheme" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.3A8.3 8.3 0 0 1 8.7 3.8 8.6 8.6 0 1 0 20.2 15.3Z" /></svg>
+          <svg *ngIf="darkTheme" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg>
+        </button>
+        <div class="avatar" aria-label="RainMetrics user">RM</div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div *ngIf="errorMessage" class="error-banner" role="alert">
+        <span>{{ errorMessage }}</span>
+        <button type="button" (click)="refresh()">Retry</button>
+      </div>
+
+      <section *ngIf="activeSection === 'overview'" class="page-section">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span>RAIN GAUGE NETWORK</div>
+            <h1>Rainfall overview</h1>
+            <p class="page-subtitle">A clear view of rainfall activity across your monitored locations.</p>
+          </div>
+          <button type="button" class="button button-outline" (click)="refresh()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.5 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.5-3" /></svg>
+            Refresh
+          </button>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-label">Rainfall · last 24 hours</div>
+            <div class="stat-value">{{ loadingOverview || !overview ? '—' : (totalRainfall | number:'1.1-2') }}<span>mm</span></div>
+            <div class="stat-foot"><span class="stat-icon rainfall-icon">↗</span>Combined across reporting locations</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Heavy rain locations</div>
+            <div class="stat-value">{{ loadingOverview || !overview ? '—' : heavyLocationCount }}<span class="stat-unit">areas</span></div>
+            <div class="stat-foot"><span class="red-indicator"></span>At least {{ overview?.heavyRainThresholdMm ?? 5 }} mm in one hour</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Reporting locations</div>
+            <div class="stat-value">{{ loadingOverview || !overview ? '—' : overview.locations.length }}<span class="stat-unit">locations</span></div>
+            <div class="stat-foot"><span class="stat-icon station-icon">⌖</span>Rain gauges with recent data</div>
+          </article>
+        </div>
+
+        <div class="overview-grid">
+          <article class="panel-card rainfall-panel">
+            <div class="card-heading">
+              <div><h2>Rainfall trend</h2><p>Hourly readings from the last 24 hours</p></div>
+              <span class="unit-pill">MM / HOUR</span>
+            </div>
+            <div class="chart-area overview-chart">
+              <div *ngIf="loadingOverview" class="loading-state"><span class="spinner"></span>Loading rainfall data</div>
+              <canvas #overviewCanvas [hidden]="loadingOverview || !overview || !overview.locations.length" aria-label="Hourly rainfall trend"></canvas>
+              <div *ngIf="!loadingOverview && overview && !overview.locations.length" class="empty-chart">
+                <span class="empty-mark">∅</span><strong>No rainfall data yet</strong>
+                <span>Locations will appear here as station readings arrive.</span>
+              </div>
+            </div>
+            <div class="chart-footer">
+              <span><span class="legend-dot"></span>Rainfall by location</span>
+              <span><span class="legend-dot heavy-legend"></span>Heavy rain threshold</span>
+            </div>
+          </article>
+
+          <article class="panel-card locations-panel">
+            <div class="card-heading">
+              <div><h2>Location status</h2><p>Heavy rain is flagged in red</p></div>
+              <span class="location-count">{{ overview?.locations?.length ?? '—' }}</span>
+            </div>
+            <div *ngIf="loadingOverview" class="location-loading"><span class="spinner"></span></div>
+            <div *ngIf="!loadingOverview && overview && !overview.locations.length" class="location-empty">
+              No locations have reported rainfall in this window.
+            </div>
+            <div class="location-list" *ngIf="!loadingOverview && overview?.locations?.length">
+              <div class="location-row" *ngFor="let location of overview?.locations">
+                <span class="location-pin" [class.pin-heavy]="location.heavyRain">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 10.2c0 5-7 11-7 11s-7-6-7-11a7 7 0 1 1 14 0Z" /><circle cx="12" cy="10" r="2.2" /></svg>
+                </span>
+                <div class="location-info"><strong>{{ location.location }}</strong>
+                  <span>{{ location.deviceCodes.join(', ') }}</span></div>
+                <div class="location-reading"><strong>{{ location.totalMm | number:'1.1-2' }}<small> mm</small></strong>
+                  <span *ngIf="location.heavyRain" class="heavy-badge"><span></span>Heavy</span>
+                  <span *ngIf="!location.heavyRain" class="normal-badge">Normal</span>
+                </div>
+              </div>
+            </div>
+            <div class="threshold-note"><span class="threshold-symbol">!</span>
+              Heavy rain means {{ overview?.heavyRainThresholdMm ?? 5 }} mm or more within one hour.
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section *ngIf="activeSection === 'rainMetrics'" class="page-section">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span>ANALYTICS</div>
+            <h1>Rain metrics</h1>
+            <p class="page-subtitle">Explore rainfall patterns by location, station, and time period.</p>
+          </div>
+          <span class="data-unit"><span class="unit-dot"></span>Measurements in millimeters</span>
+        </div>
+
+        <form class="filter-panel" (ngSubmit)="loadMetrics()">
+          <div class="filter-heading"><div><h2>Choose your view</h2><p>Set a period and location to explore the readings.</p></div>
+            <span class="filter-icon">⌕</span>
+          </div>
+          <div class="filter-controls">
+            <label class="filter-control"><span>TIME VIEW</span>
+              <select name="view" [(ngModel)]="view" (ngModelChange)="onViewChange()">
+                <option *ngFor="let item of views" [ngValue]="item.value">{{ item.label }}</option>
+              </select>
+            </label>
+            <label class="filter-control" *ngIf="view === 'DAILY'"><span>SELECT DATE</span>
+              <input type="date" name="date" [(ngModel)]="selectedDate">
+            </label>
+            <ng-container *ngIf="view !== 'DAILY'">
+              <label class="filter-control" *ngIf="view === 'WEEKLY' || view === 'MONTHLY'"><span>MONTH</span>
+                <select name="month" [(ngModel)]="selectedMonth">
+                  <option *ngFor="let month of months; let index = index" [ngValue]="index">{{ month }}</option>
+                </select>
+              </label>
+              <label class="filter-control" *ngIf="view === 'WEEKLY'"><span>WEEK</span>
+                <select name="week" [(ngModel)]="selectedWeek">
+                  <option *ngFor="let week of weeks" [ngValue]="week">Week {{ week }}</option>
+                </select>
+              </label>
+              <label class="filter-control"><span>YEAR</span>
+                <input type="number" name="year" [(ngModel)]="selectedYear" min="1" max="9999">
+              </label>
+            </ng-container>
+            <label class="filter-control"><span>LOCATION</span>
+              <select name="location" [(ngModel)]="selectedLocation" (ngModelChange)="onLocationChange()">
+                <option value="">All locations</option>
+                <option *ngFor="let location of filters.locations" [value]="location">{{ location }}</option>
+              </select>
+            </label>
+            <label class="filter-control"><span>DEVICE</span>
+              <select name="device" [(ngModel)]="selectedDeviceId">
+                <option value="">All devices</option>
+                <option *ngFor="let device of availableDevices" [value]="device.id">{{ device.code }}</option>
+              </select>
+            </label>
+            <button type="submit" class="button button-primary" [disabled]="loadingMetrics">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></svg>
+              {{ loadingMetrics ? 'Loading' : 'Show data' }}
+            </button>
+          </div>
+        </form>
+
+        <div class="metrics-summary" *ngIf="metrics">
+          <div><span class="summary-label">SELECTED PERIOD</span>
+            <strong>{{ view === 'DAILY' ? selectedDate : (view === 'YEARLY' ? selectedYear : selectedMonthName + ' ' + selectedYear) }}
+              <span *ngIf="view === 'WEEKLY'">· Week {{ selectedWeek }}</span></strong>
+          </div>
+          <div class="summary-threshold"><span class="red-indicator"></span>
+            Heavy rain flagged at {{ metrics.heavyRainThresholdMm }} mm / bucket
+          </div>
+          <div class="summary-total"><span class="summary-label">LOCATIONS</span><strong>{{ metrics.locations.length }}</strong></div>
+        </div>
+
+        <div *ngIf="loadingMetrics" class="metrics-loading"><span class="spinner"></span>Loading selected rainfall data</div>
+        <div *ngIf="!loadingMetrics && metrics && !metrics.locations.length" class="empty-state panel-card">
+          <span class="empty-mark">∅</span><h2>No rainfall readings for this selection</h2>
+          <p>Try a different date, period, or location. New readings will appear here automatically.</p>
+        </div>
+
+        <div class="location-chart-list" *ngIf="!loadingMetrics && metrics?.locations?.length">
+          <article class="location-chart-card panel-card" *ngFor="let location of metrics?.locations; let index = index">
+            <div class="location-chart-heading">
+              <div class="chart-location-title">
+                <span class="chart-location-mark" [class.chart-mark-heavy]="hasHeavyRain(location)"></span>
+                <div><h2>{{ location.location }}</h2><p>{{ location.deviceCodes.join(', ') }}</p></div>
+              </div>
+              <div class="chart-total"><span>TOTAL RAINFALL</span><strong>{{ location.totalMm | number:'1.1-2' }} <small>mm</small></strong></div>
+            </div>
+            <div class="paired-charts">
+              <div class="chart-card-inner">
+                <div class="chart-title"><strong>Rainfall by {{ view === 'DAILY' ? 'hour' : (view === 'YEARLY' ? 'month' : 'day') }}</strong><span>BAR CHART</span></div>
+                <div class="location-chart"><canvas #barCanvas [attr.aria-label]="'Bar chart rainfall for ' + location.location"></canvas></div>
+              </div>
+              <div class="chart-card-inner">
+                <div class="chart-title"><strong>Rainfall trend</strong><span>LINE CHART</span></div>
+                <div class="location-chart"><canvas #lineCanvas [attr.aria-label]="'Line chart rainfall for ' + location.location"></canvas></div>
+              </div>
+            </div>
+            <div class="heavy-note" *ngIf="hasHeavyRain(location)">
+              <span class="red-indicator"></span>
+              Heavy rain detected: {{ heavyBucketCount(location) }} bucket(s) at or above {{ metrics?.heavyRainThresholdMm }} mm.
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <footer class="page-footer"><span>RainMetrics</span><span>Rainfall data at a glance.</span></footer>
+    </div>
+  </main>
+</div>
