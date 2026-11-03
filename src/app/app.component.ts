@@ -15,6 +15,7 @@ import type { Chart as ChartInstance } from 'chart.js';
 import {
   MetricsView,
   RainMetricsDevice,
+  RainMetricsDeviceSeries,
   RainMetricsFilters,
   RainMetricsLocationOption,
   RainMetricsLocation,
@@ -79,7 +80,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedYear = this.currentYear;
   selectedWeek = 1;
   selectedLocation = '';
-  selectedDeviceId = '';
+  expandedDeviceIds = new Set<string>();
 
   private chartModulePromise?: Promise<ChartModule>;
   private overviewChart?: ChartInstance;
@@ -102,12 +103,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyCharts();
-  }
-
-  get availableDevices(): RainMetricsDevice[] {
-    return this.selectedLocation
-      ? this.filters.devices.filter((device) => device.location === this.selectedLocation)
-      : this.filters.devices;
   }
 
   get weeks(): number[] {
@@ -139,8 +134,31 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return location.readings.some((reading) => reading.heavyRain);
   }
 
+  hasDeviceHeavyRain(device: RainMetricsDeviceSeries): boolean {
+    return device.readings.some((reading) => reading.heavyRain);
+  }
+
   heavyBucketCount(location: RainMetricsLocation): number {
     return location.readings.filter((reading) => reading.heavyRain).length;
+  }
+
+  deviceHeavyBucketCount(device: RainMetricsDeviceSeries): number {
+    return device.readings.filter((reading) => reading.heavyRain).length;
+  }
+
+  get metricsChartSeries(): RainMetricsLocation[] {
+    if (!this.metrics) return [];
+    const series: RainMetricsLocation[] = [];
+    if (this.metrics.overallAverage) series.push(this.metrics.overallAverage);
+    this.metrics.devices
+      .filter((device) => this.expandedDeviceIds.has(device.id))
+      .forEach((device) => series.push({
+        location: device.deviceCode,
+        deviceCodes: [device.deviceCode],
+        readings: device.readings,
+        totalMm: device.totalMm
+      }));
+    return series;
   }
 
   loadStates(): void {
@@ -244,7 +262,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.metrics = undefined;
     this.filters = { devices: [], locations: [] };
     this.selectedLocation = '';
-    this.selectedDeviceId = '';
+    this.expandedDeviceIds.clear();
     this.errorMessage = '';
     this.changeDetector.detectChanges();
     this.renderCharts();
@@ -296,7 +314,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     const query: RainMetricsQuery = {
       view: this.view,
       location: this.selectedLocation || undefined,
-      deviceId: this.selectedDeviceId || undefined,
       stateId: this.selectedStateId,
       districtId: this.selectedDistrictId,
       subDistrictId: this.selectedSubDistrictId,
@@ -317,6 +334,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.loadingMetrics = true;
     this.errorMessage = '';
+    this.expandedDeviceIds.clear();
     this.api.getMetrics(query).subscribe({
       next: (metrics) => {
         this.metrics = metrics;
@@ -332,8 +350,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onLocationChange(): void {
-    if (this.selectedDeviceId && !this.availableDevices.some((device) => device.id === this.selectedDeviceId)) {
-      this.selectedDeviceId = '';
+    this.expandedDeviceIds.clear();
+  }
+
+  toggleDevice(deviceId: string): void {
+    if (this.expandedDeviceIds.has(deviceId)) {
+      this.expandedDeviceIds.delete(deviceId);
+    } else {
+      this.expandedDeviceIds.add(deviceId);
     }
   }
 
@@ -463,7 +487,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         || this.activeSection !== 'rainMetrics'
         || this.metrics !== metrics) return;
     this.metricsCanvases?.forEach((canvas, index) => {
-      const location = metrics.locations[index];
+      const location = this.metricsChartSeries[index];
       if (location) this.metricsCharts.push(this.createLocationChart(chartModule, canvas.nativeElement, location, this.chartType));
     });
   }

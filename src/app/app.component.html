@@ -231,12 +231,6 @@
                 <option *ngFor="let location of filters.locations" [value]="location">{{ location }}</option>
               </select>
             </label>
-            <label class="filter-control"><span>DEVICE</span>
-              <select name="device" [(ngModel)]="selectedDeviceId">
-                <option value="">All devices</option>
-                <option *ngFor="let device of availableDevices" [value]="device.id">{{ device.code }}</option>
-              </select>
-            </label>
             <button type="submit" class="button button-primary" [disabled]="loadingMetrics">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></svg>
               {{ loadingMetrics ? 'Loading' : 'Show data' }}
@@ -252,7 +246,7 @@
           <div class="summary-threshold"><span class="red-indicator"></span>
             Heavy rain flagged at {{ metrics.heavyRainThresholdMm }} mm / bucket
           </div>
-          <div class="summary-total"><span class="summary-label">LOCATIONS</span><strong>{{ metrics.locations.length }}</strong></div>
+          <div class="summary-total"><span class="summary-label">DEVICES</span><strong>{{ metrics.devices.length }}</strong></div>
           <div class="chart-type-picker" role="group" aria-label="Chart type">
             <span class="summary-label">CHART TYPE</span>
             <div class="chart-type-options">
@@ -265,19 +259,19 @@
         </div>
 
         <div *ngIf="loadingMetrics" class="metrics-loading"><span class="spinner"></span>Loading selected rainfall data</div>
-        <div *ngIf="!loadingMetrics && metrics && !metrics.locations.length" class="empty-state panel-card">
+        <div *ngIf="!loadingMetrics && metrics && !metrics.devices.length" class="empty-state panel-card">
           <span class="empty-mark">∅</span><h2>No rainfall readings for this selection</h2>
           <p>Try a different date, period, or location. New readings will appear here automatically.</p>
         </div>
 
-        <div class="location-chart-list" *ngIf="!loadingMetrics && metrics?.locations?.length">
-          <article class="location-chart-card panel-card" *ngFor="let location of metrics?.locations">
+        <div class="location-chart-list" *ngIf="!loadingMetrics && metrics?.overallAverage as average">
+          <article class="location-chart-card panel-card overall-average-card">
             <div class="location-chart-heading">
               <div class="chart-location-title">
-                <span class="chart-location-mark" [class.chart-mark-heavy]="hasHeavyRain(location)"></span>
-                <div><h2>{{ location.location }}</h2><p>{{ location.deviceCodes.join(', ') }}</p></div>
+                <span class="chart-location-mark" [class.chart-mark-heavy]="hasHeavyRain(average)"></span>
+                <div><h2>Overall average</h2><p>Average rainfall across {{ metrics?.devices?.length }} device(s)</p></div>
               </div>
-              <div class="chart-total"><span>TOTAL RAINFALL</span><strong>{{ location.totalMm | number:'1.1-2' }} <small>mm</small></strong></div>
+              <div class="chart-total"><span>AVERAGE TOTAL</span><strong>{{ average.totalMm | number:'1.1-2' }} <small>mm</small></strong></div>
             </div>
             <div class="chart-card-inner">
               <div class="chart-title">
@@ -286,14 +280,52 @@
               </div>
               <div class="location-chart">
                 <canvas #metricsCanvas
-                  [attr.aria-label]="(chartType === 'bar' ? 'Bar chart rainfall for ' : 'Line chart rainfall for ') + location.location"></canvas>
+                  aria-label="Average rainfall across all selected devices"></canvas>
               </div>
             </div>
-            <div class="heavy-note" *ngIf="hasHeavyRain(location)">
+            <div class="heavy-note" *ngIf="hasHeavyRain(average)">
               <span class="red-indicator"></span>
-              Heavy rain detected: {{ heavyBucketCount(location) }} bucket(s) at or above {{ metrics?.heavyRainThresholdMm }} mm.
+              Heavy rain detected in the average: {{ heavyBucketCount(average) }} bucket(s) at or above {{ metrics?.heavyRainThresholdMm }} mm.
             </div>
           </article>
+
+          <section class="device-breakdown" *ngIf="metrics?.devices?.length">
+            <div class="device-breakdown-heading">
+              <div><h2>Device rainfall</h2><p>Select a device to view its individual readings.</p></div>
+              <span>{{ metrics?.devices?.length }} devices</span>
+            </div>
+            <article class="device-accordion panel-card" *ngFor="let device of metrics?.devices">
+              <button type="button" class="device-accordion-toggle" (click)="toggleDevice(device.id)"
+                [attr.aria-expanded]="expandedDeviceIds.has(device.id)"
+                [attr.aria-controls]="'device-chart-' + device.id">
+                <span class="device-accordion-name">
+                  <span class="chart-location-mark" [class.chart-mark-heavy]="hasDeviceHeavyRain(device)"></span>
+                  <span><strong>{{ device.deviceCode }}</strong><small>{{ device.location }}</small></span>
+                </span>
+                <span class="device-accordion-total">
+                  <small>TOTAL RAINFALL</small><strong>{{ device.totalMm | number:'1.1-2' }} mm</strong>
+                </span>
+                <span class="device-accordion-chevron" [class.device-accordion-chevron-open]="expandedDeviceIds.has(device.id)" aria-hidden="true">⌄</span>
+              </button>
+              <div class="device-accordion-content" *ngIf="expandedDeviceIds.has(device.id)"
+                [id]="'device-chart-' + device.id">
+                <div class="chart-card-inner">
+                  <div class="chart-title">
+                    <strong>Rainfall by {{ view === 'DAILY' ? 'hour' : (view === 'YEARLY' ? 'month' : 'day') }}</strong>
+                    <span>{{ chartType === 'bar' ? 'BAR CHART' : 'LINE CHART' }}</span>
+                  </div>
+                  <div class="location-chart">
+                    <canvas #metricsCanvas
+                      [attr.aria-label]="(chartType === 'bar' ? 'Bar chart rainfall for ' : 'Line chart rainfall for ') + device.deviceCode"></canvas>
+                  </div>
+                </div>
+                <div class="heavy-note" *ngIf="hasDeviceHeavyRain(device)">
+                  <span class="red-indicator"></span>
+                  Heavy rain detected: {{ deviceHeavyBucketCount(device) }} bucket(s) at or above {{ metrics?.heavyRainThresholdMm }} mm.
+                </div>
+              </div>
+            </article>
+          </section>
         </div>
       </section>
 

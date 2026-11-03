@@ -21,6 +21,14 @@ export interface RainMetricsLocation {
   totalMm: number;
 }
 
+export interface RainMetricsDeviceSeries {
+  id: string;
+  deviceCode: string;
+  location: string;
+  readings: RainfallPoint[];
+  totalMm: number;
+}
+
 export interface RainMetricsResponse {
   view: MetricsView;
   start: string;
@@ -28,6 +36,8 @@ export interface RainMetricsResponse {
   heavyRainThresholdMm: number;
   buckets: RainMetricsBucket[];
   locations: RainMetricsLocation[];
+  overallAverage: RainMetricsLocation | null;
+  devices: RainMetricsDeviceSeries[];
 }
 
 export interface RainMetricsOverviewLocation {

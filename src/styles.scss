@@ -970,6 +970,112 @@ h1 {
   gap: 14px;
 }
 
+.device-breakdown {
+  display: grid;
+  gap: 8px;
+}
+
+.device-breakdown-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 1px 2px;
+}
+
+.device-breakdown-heading h2 {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+}
+
+.device-breakdown-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.device-breakdown-heading > span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.device-accordion {
+  overflow: hidden;
+}
+
+.device-accordion-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 17px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.device-accordion-toggle:hover {
+  background: var(--surface-soft);
+}
+
+.device-accordion-toggle:focus-visible {
+  outline: 2px solid var(--muted-strong);
+  outline-offset: -3px;
+}
+
+.device-accordion-name {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.device-accordion-name > span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.device-accordion-name strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+.device-accordion-name small,
+.device-accordion-total small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.device-accordion-total {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.device-accordion-total strong {
+  font-size: 10px;
+}
+
+.device-accordion-chevron {
+  color: var(--muted);
+  font-size: 16px;
+  transition: transform .15s ease;
+}
+
+.device-accordion-chevron-open {
+  transform: rotate(180deg);
+}
+
+.device-accordion-content {
+  padding: 0 17px 14px;
+}
+
 .location-chart-card {
   padding: 19px 20px 15px;
 }
@@ -1232,5 +1338,14 @@ h1 {
 
   .location-chart-card {
     padding: 15px;
+  }
+
+  .device-accordion-toggle {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .device-accordion-content {
+    padding: 0 12px 12px;
   }
 }
